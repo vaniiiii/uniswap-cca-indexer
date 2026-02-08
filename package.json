@@ -1,0 +1,21 @@
+{
+  "name": "uniswap-cca-indexer",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "codegen": "envio codegen",
+    "dev": "envio dev",
+    "start": "envio start"
+  },
+  "devDependencies": {
+    "@types/node": "20.8.8",
+    "typescript": "5.9.3",
+    "viem": "2.21.0"
+  },
+  "dependencies": {
+    "envio": "3.0.0-alpha.11"
+  },
+  "optionalDependencies": {
+    "generated": "./generated"
+  }
+}

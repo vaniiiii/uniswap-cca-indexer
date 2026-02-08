@@ -1,0 +1,82 @@
+type Auction {
+  id: ID! # auction contract address (lowercase)
+  chainId: Int!
+  token: String!
+  currency: String!
+  amount: BigInt!
+  startBlock: Int!
+  endBlock: Int!
+  claimBlock: Int!
+  totalSupply: BigInt!
+  floorPrice: BigInt!
+  tickSpacing: BigInt!
+  validationHook: String!
+  createdAt: Int!
+  # Live state
+  lastCheckpointedBlock: Int!
+  lastClearingPriceQ96: BigInt!
+  currencyRaised: BigInt!
+  totalCleared: BigInt!
+  requiredCurrencyRaised: BigInt!
+  cumulativeMps: Int!
+  remainingMps: BigInt!
+  availableSupply: BigInt!
+  currentStepMps: Int!
+  currentStepStartBlock: Int!
+  currentStepEndBlock: Int!
+  numBids: Int!
+  numBidders: Int!
+  totalBidAmount: BigInt!
+  updatedAt: Int!
+  # Bid tracking for checkpoint calculations
+  bidIds: [String!]!
+}
+
+type Bid @index(fields: ["auctionId", "maxPriceQ96"]) {
+  id: ID! # {auctionAddr}:{bidId}
+  auctionId: String! @index
+  amount: BigInt!
+  maxPriceQ96: BigInt!
+  owner: String! @index
+  startBlock: Int!
+  transactionHash: String!
+  tokensFilled: BigInt!
+  amountFilled: BigInt!
+  lastFullyFilledCheckpointBlock: Int!
+  outbidCheckpointBlock: Int
+  exited: Boolean!
+  exitedBlock: Int
+  exitTransactionHash: String
+  claimed: Boolean!
+  claimedBlock: Int
+  claimTransactionHash: String
+  tokensClaimed: BigInt!
+  amountRefunded: BigInt!
+}
+
+type Tick {
+  id: ID! # {auctionAddr}:{priceQ96}
+  auctionId: String! @index
+  priceQ96: BigInt!
+  nextPriceQ96: BigInt!
+  currencyDemand: BigInt!
+  numBids: Int!
+}
+
+type Step {
+  id: ID! # {auctionAddr}:{stepIndex}
+  auctionId: String! @index
+  startBlock: Int!
+  endBlock: Int!
+  mps: Int!
+}
+
+type Checkpoint {
+  id: ID! # {auctionAddr}:{blockNumber}
+  auctionId: String! @index
+  blockNumber: Int! @index
+  clearingPriceQ96: BigInt!
+  currencyRaisedAtClearingPriceQ96_X7: BigInt!
+  cumulativeMps: Int!
+  cumulativeMpsPerPrice: BigInt!
+}
