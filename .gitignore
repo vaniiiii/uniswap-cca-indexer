@@ -2,3 +2,8 @@ generated/
 node_modules/
 .envio/
 .env
+CLAUDE.md
+reference/
+aztec.sol
+scripts/compare-envio-ponder.mjs
+.DS_Store
