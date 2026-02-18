@@ -5,7 +5,7 @@ const unichainMainnet = defineChain({
   id: 130,
   name: 'Unichain',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-  rpcUrls: { default: { http: ['https://unichain-mainnet.g.alchemy.com/v2'] } },
+  rpcUrls: { default: { http: ['https://unichain.drpc.org'] } },
   blockExplorers: { default: { name: 'Uniscan', url: 'https://uniscan.xyz' } },
   contracts: {
     multicall3: {
@@ -15,6 +15,13 @@ const unichainMainnet = defineChain({
   },
 });
 
+const DEFAULT_RPC_URLS: Record<number, string> = {
+  1: 'https://eth.drpc.org',
+  8453: 'https://base.drpc.org',
+  42161: 'https://arbitrum.drpc.org',
+  130: 'https://unichain.drpc.org',
+};
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const clients = new Map<number, any>();
 
@@ -23,38 +30,42 @@ export function getClient(chainId: number) {
 
   let client;
   switch (chainId) {
-    case 1:
-      if (!process.env.ETH_RPC_URL) throw new Error('ETH_RPC_URL not set');
+    case 1: {
+      const rpcUrl = process.env.ETH_RPC_URL || DEFAULT_RPC_URLS[1];
       client = createPublicClient({
         chain: mainnet,
-        transport: http(process.env.ETH_RPC_URL),
+        transport: http(rpcUrl),
         batch: { multicall: true },
       });
       break;
-    case 8453:
-      if (!process.env.BASE_RPC_URL) throw new Error('BASE_RPC_URL not set');
+    }
+    case 8453: {
+      const rpcUrl = process.env.BASE_RPC_URL || DEFAULT_RPC_URLS[8453];
       client = createPublicClient({
         chain: base,
-        transport: http(process.env.BASE_RPC_URL),
+        transport: http(rpcUrl),
         batch: { multicall: true },
       });
       break;
-    case 42161:
-      if (!process.env.ARB_RPC_URL) throw new Error('ARB_RPC_URL not set');
+    }
+    case 42161: {
+      const rpcUrl = process.env.ARB_RPC_URL || DEFAULT_RPC_URLS[42161];
       client = createPublicClient({
         chain: arbitrum,
-        transport: http(process.env.ARB_RPC_URL),
+        transport: http(rpcUrl),
         batch: { multicall: true },
       });
       break;
-    case 130:
-      if (!process.env.UNICHAIN_RPC_URL) throw new Error('UNICHAIN_RPC_URL not set');
+    }
+    case 130: {
+      const rpcUrl = process.env.UNICHAIN_RPC_URL || DEFAULT_RPC_URLS[130];
       client = createPublicClient({
         chain: unichainMainnet,
-        transport: http(process.env.UNICHAIN_RPC_URL),
+        transport: http(rpcUrl),
         batch: { multicall: true },
       });
       break;
+    }
     default:
       throw new Error(`Unsupported chain: ${chainId}`);
   }
