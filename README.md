@@ -1,113 +1,72 @@
 # uniswap-cca-indexer
 
-Envio HyperIndex indexer for Uniswap Continuous Clearing Auction (CCA) contracts.
+Indexes Uniswap's [Continuous Clearing Auction (CCA)](https://blog.uniswap.org/cca) contracts across Ethereum, Base, Arbitrum, and Unichain. Built with [Envio HyperIndex](https://docs.envio.dev/).
 
-- Chains: Ethereum, Base, Arbitrum, Unichain
-- Data model: auctions, bids, ticks, steps, checkpoints
-- Event source: HyperSync (logs) + selective RPC reads (`eth_call`) for derived state
+Tracks auctions, bids, ticks, steps, and checkpoints. Uses HyperSync for logs and selective RPC reads for derived on-chain state.
 
-## Features
+## Run locally
 
-- Factory-driven auction discovery (`AuctionCreated`)
-- Direct auction indexing support (for custom/non-factory auctions)
-- CCA fill math for fully/partially filled bids
-- Multicall-bundled reads for hot paths
-- Per-effect rate limiting via env vars
+```bash
+git clone git@github.com:dzmbs/uniswap-cca-indexer.git
+cd uniswap-cca-indexer
+pnpm install
+```
 
-## Special case: Aztec auction on Ethereum
+Set up your environment:
 
-The Ethereum auction `0x608c4e792C65f5527B3f70715deA44d3b302F4Ee` is indexed as a direct `Auction` address in `config.yaml`.
+```bash
+cp .env.example .env
+```
 
-Reason: it was not deployed through the currently indexed canonical CCA factory address, so factory discovery alone would not register it.
+Edit `.env` and add your RPC URLs. Public fallbacks are baked in but they will get rate limited fast during backfill. Use private RPCs if you can (Alchemy, Infura, etc).
 
-Implementation details:
-- Added static contract registration for that address on chain `1`
-- Added lazy auction bootstrap in `Auction` handlers so non-factory auctions can still initialize `Auction` + `Step` rows from on-chain reads
+```env
+ENVIO_API_TOKEN=        # required for HyperSync
+ETH_RPC_URL=            # strongly recommended - private RPC
+BASE_RPC_URL=
+ARB_RPC_URL=
+UNICHAIN_RPC_URL=
+```
+
+Start the indexer:
+
+```bash
+pnpm envio dev
+```
+
+GraphQL playground will be at `http://localhost:8080`.
+
+## Rate limit tuning
+
+The indexer makes RPC calls (eth_call) for on-chain state that isn't in event logs. Each call type has its own rate limit you can control via env vars:
+
+```env
+EFFECT_RPS_READ_TOTAL_SUPPLY=2
+EFFECT_RPS_READ_AUCTION_SNAPSHOT=1
+EFFECT_RPS_READ_STEPS=1
+EFFECT_RPS_READ_CHECKPOINT_BUNDLE=6
+EFFECT_RPS_READ_TICK_AT_BLOCK=3
+EFFECT_RPS_READ_TICK_PAIR=6
+```
+
+These defaults are conservative for free-tier RPCs. If you're using a paid RPC, you can bump them up. If you're seeing 429s, lower `READ_CHECKPOINT_BUNDLE` and `READ_TICK_PAIR` first — those are the hottest paths.
+
+## Aztec private sale
+
+The Ethereum auction at `0x608c4e792C65f5527B3f70715deA44d3b302F4Ee` is the Aztec private token sale. It wasn't deployed through the canonical CCA factory, so it's registered directly in `config.yaml` as a static `Auction` address on chain 1. The handlers bootstrap its state from on-chain reads on first event.
 
 ## Project structure
 
-```text
+```
 src/
   handlers/
-    CCAFactory.ts
-    Auction.ts
+    CCAFactory.ts    # factory event processing, dynamic auction registration
+    Auction.ts       # auction event processing, bid fill math
   utils/
-    clients.ts
-    effects.ts
-    math.ts
+    clients.ts       # per-chain RPC clients
+    effects.ts       # rate-limited multicall reads
+    math.ts          # CCA fill calculations
   abi.ts
-config.yaml
-schema.graphql
-scripts/
-  compare-envio-ponder.mjs
+config.yaml          # chain + contract config
+schema.graphql       # data model
 ```
-
-## Setup
-
-```bash
-pnpm install
-cp .env.example .env
-pnpm codegen
-pnpm dev
-```
-
-GraphQL: `http://localhost:8080` (admin secret: `testing`)
-
-## Environment
-
-See `.env.example`.
-
-Required:
-- `ENVIO_API_TOKEN`
-- `BASE_RPC_URL`
-- `ARB_RPC_URL`
-- `ETH_RPC_URL`
-- `UNICHAIN_RPC_URL`
-
-### RPC rate-limit controls
-
-Effect-level request throttles are configurable via env (requests/second):
-
-- `EFFECT_RPS_READ_TOTAL_SUPPLY` (default `2`)
-- `EFFECT_RPS_READ_AUCTION_SNAPSHOT` (default `1`)
-- `EFFECT_RPS_READ_STEPS` (default `1`)
-- `EFFECT_RPS_READ_CHECKPOINT_BUNDLE` (default `6`)
-- `EFFECT_RPS_READ_TICK_AT_BLOCK` (default `3`)
-- `EFFECT_RPS_READ_TICK_PAIR` (default `6`)
-
-Recommended tuning plan:
-1. Start with defaults.
-2. If you see 429s, reduce `READ_CHECKPOINT_BUNDLE` and `READ_TICK_PAIR` first.
-3. Increase by +1 only after stable full backfill runs.
-
-## Development commands
-
-```bash
-pnpm codegen
-pnpm dev
-pnpm start
-pnpm compare:ponder
-```
-
-## Data validation
-
-Use GraphQL aggregates to validate sync and event coverage:
-
-```graphql
-query {
-  chain_metadata(order_by: { chain_id: asc }) {
-    chain_id
-    block_height
-    latest_processed_block
-    num_events_processed
-  }
-  Auction_aggregate { aggregate { count } }
-  Bid_aggregate { aggregate { count } }
-  Checkpoint_aggregate { aggregate { count } }
-}
-```
-
-## Security notes
-
-- `.env` is gitignored. Keep API keys only in local env files or secret managers.
-- Never paste live keys into tracked docs/commits.
